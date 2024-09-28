@@ -1,0 +1,514 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multitool-tmp
+spec:
+  containers:
+  - name: multitool-tmp
+    image: wbitt/network-multitool
+    env:
+    - name: HTTP_PORT
+      value: "1180"
+    - name: HTTPS_PORT
+      value: "11443"
+    ports:
+    - containerPort: 1180
+      name: http-port
+    - containerPort: 11443
+      name: https-port
+
+# -----
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "1180"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 1180
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+# ---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysvc2
+spec:
+  selector:
+    app: nginx
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    - name: http2
+      port: 1180
+      targetPort: 1180
+    - name: https      
+      port: 11443
+      targetPort: 11443
+
+# ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+spec:
+  selector:
+    app: nginx-init
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-svc-multiport
+spec:
+  selector:
+    app: nginx
+  ports:
+    - name: nginx
+      protocol: TCP
+      port: 9001
+      targetPort: 80
+    - name: multitool
+      protocol: TCP
+      port: 9002
+      targetPort: 8080
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-svc-nodeport
+  namespace: default
+spec:
+  selector:
+    app: nginx
+  ports:
+    - name: web
+      port: 80
+      protocol: TCP
+      nodePort: 30080
+  type: NodePort
+
+  ---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 8080
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: backend-multitool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-multitool
+  template:
+    metadata:
+      labels:
+        app: backend-multitool
+    spec:
+      containers:
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 8080
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  labels:
+    app: front-nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: front-nginx
+  template:
+    metadata:
+      labels:
+        app: front-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1$2  
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  rules:
+  - host: ingress.dmil.ru
+    http:
+      paths:
+      - path: /(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: svc-frontend
+            port:
+              number: 9003
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: svc-backend
+            port:
+              number: 9004
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-backend
+spec:
+  selector:
+    app: backend-multitool
+  ports:
+    - name: multitool
+      protocol: TCP
+      port: 9004
+      targetPort: 8080
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-frontend
+spec:
+  selector:
+    app: front-nginx
+  ports:
+    - name: nginx
+      protocol: TCP
+      port: 9003
+      targetPort: 80
+
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: daemonset-mul
+  labels:
+    app: daemonset-mul
+spec:
+  selector:
+    matchLabels:
+      app: daemonset-mul
+  template:
+    metadata:
+      labels:
+        app: daemonset-mul
+    spec:
+      containers:
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 8080
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+        volumeMounts:
+        - name: vol
+          mountPath: /input
+      volumes:
+      - name: vol
+        hostPath:
+          path: /var/log/syslog
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: busybox-vol
+  labels:
+    app: busybox-vol
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: busybox-vol
+  template:
+    metadata:
+      labels:
+        app: busybox-vol
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ['sh', '-c', 'while true; do echo "$(date +%T)">> /output/timefile; sleep 5; done']
+        volumeMounts:
+        - name: vol
+          mountPath: /output        
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 8080
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+        volumeMounts:
+        - name: vol
+          mountPath: /input
+      volumes:
+      - name: vol
+        emptyDir: {}
+        # hostPath:
+        #   path: /var/data 
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dep-pvc-vol
+  labels:
+    app: dep-pvc-vol
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pod-pvc-vol
+  template:
+    metadata:
+      labels:
+        app: pod-pvc-vol
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ['sh', '-c', 'while true; do echo "$(date +%T)">> /output/timefile; sleep 5; done']
+        volumeMounts:
+        - name: pv-vol
+          mountPath: /output        
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 8080
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+        volumeMounts:
+        - name: pv-vol
+          mountPath: /input
+      volumes:
+      - name: pv-vol
+        persistentVolumeClaim:
+          claimName: pvc-vol
+        # emptyDir: {}
+        # hostPath:
+        #   path: /var/data  
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dep-class-vol
+  labels:
+    app: dep-class-vol
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pod-class-vol
+  template:
+    metadata:
+      labels:
+        app: pod-class-vol
+    spec:
+      containers:
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 8080
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+        volumeMounts:
+        - name: class-vol
+          mountPath: /input
+      volumes:
+      - name: class-vol
+        persistentVolumeClaim:
+          claimName: pvc-class-vol-claim
+        # emptyDir: {}
+        # hostPath:
+        #   path: /var/data          
+
+
+
+
+Чтобы сгенерировать самоподписанный сертификат для Nginx, нужно: 1
+
+    Установить OpenSSL. На большинстве Linux-систем он уже установлен, но если это не так, можно установить его с помощью пакетного менеджера системы. Например, для Ubuntu это команда:
+
+    sudo apt-get install openssl
+
+    . 1
+    Создать приватный ключ. Он будет использоваться для шифрования данных. Команда для создания:
+
+    openssl genpkey -algorithm RSA -out/etc/nginx/ssl/private.key
+
+    . 1
+    Создать CSR (Certificate Signing Request). CSR содержит информацию о компании и домене. Команда для создания:
+
+    openssl req -new-key /etc/nginx/ssl/private.key -out/etc/nginx/ssl/certificate.csr
+
+    . 1
+    Сгенерировать самоподписанный сертификат. Для этого нужно использовать CSR и приватный ключ. Команда:
+
+    openssl x509 -req -days 365 -in/etc/nginx/ssl/certificate.csr -signkey /etc/nginx/ssl/private.key -out/etc/nginx/ssl/selfsigned.crt
+
+    . Эта команда создаст сертификат, действительный в течение одного года (365 дней). 1
+    Настроить Nginx. Открыть файл конфигурации сайта в Nginx. Обычно он находится в
+
+    /etc/nginx/sites-available/your_site
+
+    или
+
+    /etc/nginx/conf.d/your_site.conf
+
+    . Добавить в конфигурацию строки, которые включают HTTPS и перенаправляют HTTP-запросы на HTTPS: 1
+
+server {
+    listen 443 ssl;
+    server_name your_domain;
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/private.key;
+    ssl_protocols TLSv1.2TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    location /{
+        root /var/www/your_site;
+        index index.html index.htm;
+    }
+}
+server {
+    listen 80;
+    server_name your_domain;
+    return301 https://$host$request_uri;
+}
+
+    Проверить конфигурацию Nginx. Перед перезапуском Nginx убедиться, что конфигурация не содержит ошибок:
+
+    sudo nginx -t
+
+    . 1
+    Перезапустить Nginx. Чтобы применить изменения:
+
+    sudo systemctl restart nginx
+
+    . 1
+
+Самоподписанный сертификат предоставляет простой и быстрый способ настройки HTTPS-соединения для локальной разработки и внутреннего использования.
+ Однако для публичных веб-сайтов рекомендуется использовать сертификаты от доверенных центров сертификации, 
+ чтобы обеспечить надёжность и безопасность соединений.                
