@@ -25,9 +25,76 @@
 ### Задание 1. Создать Deployment приложения и решить возникшую проблему с помощью ConfigMap. Добавить веб-страницу
 
 1. Создать Deployment приложения, состоящего из контейнеров nginx и multitool.
+
+Создал по аналогии как уже раньше сохдавал:
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dep-ngix-multi
+  labels:
+    app: nginx-multi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-multi
+  template:
+    metadata:
+      labels:
+        app: nginx-multi
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "1180"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 1180
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+```
+![alt text](image.png)
+
+Проверил - зашел в мультитул контейнер и курлом проверил порт 80 что работает nginx:
+
+![alt text](image-1.png)
+
+- nginx работает.
+
 2. Решить возникшую проблему с помощью ConfigMap.
+
+у меня проблем не возникло, т.к. сразу укзал разные порты. 
+Какую проблему нужно бы решить через configMab? Видимо указывать порты не хардкодно в коде деплоймента а в отдельнмо конфигмепе?
+
 3. Продемонстрировать, что pod стартовал и оба конейнера работают.
+
+Уже показал выше что под стартовал, и мултитул работает т.к. я вошел в  него (см. выше) и ngix работает, т.к. я курлом открыл дефолтную страницу.
+
 4. Сделать простую веб-страницу и подключить её к Nginx с помощью ConfigMap. Подключить Service и показать вывод curl или в браузере.
+
+Зашел в контейнер nginx и там нашел где лежит файл дефолтный с сайтом html:
+
+![alt text](image-2.png)
+
+Лежит тут:
+
+/usr/share/nginx/html/index.html
+
+Попробую сюда примапить свой сайт из конфигмепа.
+
+
+
+
 5. Предоставить манифесты, а также скриншоты или вывод необходимых команд.
 
 ------
