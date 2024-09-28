@@ -92,6 +92,104 @@ spec:
 
 Попробую сюда примапить свой сайт из конфигмепа.
 
+Создаю конфиг мэп:
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config-map
+data:
+  index.html: |
+    enemy.types=aliens,monsters
+    player.maximum-lives=5    
+    user-interface.properties: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>It's my site - Dmitry ILL</title>
+    <style>
+        body {
+            width: 35em;
+            margin: 0 auto;
+            font-family: Tahoma, Verdana, Arial, sans-serif;
+        }
+    </style>
+    </head>
+    <body>
+    <h1>It's my site - Dmitry ILL</h1>
+    <p>Hello!</p>
+    </body>
+    </html>
+```
+
+модифицирую деплоймент:
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dep-ngix-multi
+  labels:
+    app: nginx-multi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-multi
+  template:
+    metadata:
+      labels:
+        app: nginx-multi
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: configmap-volume
+          mountPath: /usr/share/nginx/html/
+          readOnly: true
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "1180"
+        - name: HTTPS_PORT
+          value: "11443"
+        ports:
+        - containerPort: 1180
+          name: http-port
+        - containerPort: 11443
+          name: https-port
+      volumes:
+      - name: configmap-volume
+        configMap:
+          name: my-config-map
+          # An array of keys from the ConfigMap to create as files
+          items:
+          - key: "index.html" 
+            path: "index.html" 
+```
+
+Применяю:
+
+Конфиг мэп:
+![alt text](image-3.png)
+
+Деплоймент:
+![alt text](image-4.png)
+
+Захожу в мултитул:
+
+![alt text](image-5.png)
+
+Смотрю сайт на порту 80:
+
+![alt text](image-6.png)
+
+- сайт мой, ок.
 
 
 
