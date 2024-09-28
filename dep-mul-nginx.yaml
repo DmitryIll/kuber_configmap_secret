@@ -36,7 +36,7 @@ spec:
         - containerPort: 11443
           name: https-port
       volumes:
-      - name: map-volume
+      - name: configmap-volume
         configMap:
           name: my-config-map
           # An array of keys from the ConfigMap to create as files
