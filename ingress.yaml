@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress-config-map
+spec:
+  rules:
+  - host: mysite.local
+    http:
+      paths:
+      - path: /
+        backend:
+          service:
+            name: svc-nginx-multi-conf-map
+            port:
+              number: 9003
+  tls:
+    - hosts:
+        - mysite.local
+      secretName: my-secret-tls
